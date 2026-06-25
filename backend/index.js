@@ -24,6 +24,9 @@ app.use(cors(
 // Middleware to handle JSON requests
 app.use(express.json());
 
+// For using profile image 
+app.use("/upload", express.static("upload"));
+
 app.listen(5000, () => {
     console.log("Server is running on port 5000!");
-})
+});
