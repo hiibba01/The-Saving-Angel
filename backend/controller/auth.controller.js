@@ -105,3 +105,48 @@ export const userProfile = async (req, res, next) => {
         next(error);
     }
 }
+
+export const updateUserProfile = async (req, res, next) => {
+    try{
+        const user = await User.findById(req.user.id);
+        if(!user){
+            return next(errorHandler(404, "User not found!"));
+        }
+        user.name = req.body.name || user.name;
+        user.email = req.body.email || user.email;
+
+        if(req.body.password){
+            const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/;
+
+            if (!passwordRegex.test(req.body.password)) {
+                return next(errorHandler(400, "Password must be at least 8 characters long and contain both letters and numbers."));
+            }
+            user.password = await bcrypt.hashSync(req.body.password, 10);
+        }
+
+        const updatedUser = await user.save();
+
+        const {password: pass, ...rest} = user._doc;
+        res.status(200).json(rest);
+        
+
+    } catch(error){
+        next(error);
+    }
+}
+
+export const uploadImage = async (req, res, next) => {
+    try{
+        if(!req.file){
+            return next(errorHandler(400, "No file uploaded!"));
+        }
+
+        const imageUrl = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
+
+        res.status(200).json({imageUrl});
+
+    }catch(error){
+        next(error);
+    }
+    
+}
