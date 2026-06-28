@@ -5,7 +5,9 @@ import mongoose from "mongoose";
 import cookieParser from "cookie-parser";
 import authRoutes from "./routes/auth.route.js";
 import gemRoute from "./routes/gemAI.route.js";
+import userRoutes from "./routes/user.route.js";
 import { GoogleGenAI } from "@google/genai";
+
 
 dotenv.config();
 
@@ -37,6 +39,7 @@ app.use("/upload", express.static("upload"));
 
 
 app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
 
 //For Gemini AI route
 

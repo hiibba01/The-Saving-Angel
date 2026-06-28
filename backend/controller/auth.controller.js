@@ -40,7 +40,7 @@ let role = "user";
 if(adminJoinCode === process.env.ADMIN_JOIN_CODE){
     role = "admin";
 }
-const hashedPassword = await bcrypt.hashSync(password, 10);
+const hashedPassword = bcrypt.hashSync(password, 10);
 
 const newUser = new User({
     name,
@@ -79,7 +79,7 @@ export const signin = async (req, res, next) => {
             return next(errorHandler(400, "Invalid password! Please try again."));
         }
 
-        const token = jwt.sign({id: validUser._id}, process.env.JWT_SECRET)
+        const token = jwt.sign({id: validUser._id, role: validUser.role}, process.env.JWT_SECRET)
 
         const {password: pass, ...rest} = validUser._doc;
 
@@ -148,5 +148,6 @@ export const uploadImage = async (req, res, next) => {
     }catch(error){
         next(error);
     }
+    
     
 }
