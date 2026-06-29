@@ -6,7 +6,9 @@ import cookieParser from "cookie-parser";
 import authRoutes from "./routes/auth.route.js";
 import gemRoute from "./routes/gemAI.route.js";
 import userRoutes from "./routes/user.route.js";
+import taskRoutes from './routes/task.route.js'
 import { GoogleGenAI } from "@google/genai";
+
 
 
 dotenv.config();
@@ -40,13 +42,11 @@ app.use("/upload", express.static("upload"));
 
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/tasks", taskRoutes);
 
 //For Gemini AI route
 
 app.use("/api/triage", gemRoute);
-console.log(gemRoute);
-
-
 
 app.use((err, req, res, next) => {
     const statusCode = err.statusCode || 500;
@@ -58,6 +58,7 @@ app.use((err, req, res, next) => {
         message,
     })
 })
+
 
 app.listen(5000, () => {
     console.log("Server is running on port 5000!");

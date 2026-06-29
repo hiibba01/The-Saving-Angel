@@ -76,19 +76,6 @@ const taskSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Validation for Team tasks must have at least one assigned member
-taskSchema.pre("save", function (next) {
-  if (
-    this.taskType === "Team" &&
-    (!this.assignedTo || this.assignedTo.length === 0)
-  ) {
-    return next(
-      new Error("Please assign at least one member to a Team task.")
-    );
-  }
-
-  next();
-});
 
 const Task = mongoose.model("Task", taskSchema);
 
