@@ -334,3 +334,186 @@ export const updateTaskStatus = async (req, res, next) => {
         next(error);
     }
 };
+
+export const updateTaskCheckList = async (req, res, next) => {
+    try {
+        const { todoCheckList } = req.body;
+
+        const task = await Task.findById(req.params.id);
+
+        if (!task) {
+            return next(errorHandler(404, "Task not found!"));
+        }
+
+        // Authorization
+        if (req.user.role === "admin") {
+            // Admin can update:
+            // 1. Any Team task
+            // 2. Their own Personal task
+            if (
+                task.taskType === "Personal" &&
+                task.createdBy.toString() !== req.user.id
+            ) {
+                return next(
+                    errorHandler(403, "Not authorized to update checklist!")
+                );
+            }
+        } else {
+            // Normal user
+
+            if (task.taskType === "Personal") {
+                // User can update only their own personal task
+                if (task.createdBy.toString() !== req.user.id) {
+                    return next(
+                        errorHandler(403, "Not authorized to update checklist!")
+                    );
+                }
+            } else {
+                // User can update only assigned team task
+                const isAssigned = task.assignedTo.some(
+                    (userId) => userId.toString() === req.user.id
+                );
+
+                if (!isAssigned) {
+                    return next(
+                        errorHandler(403, "Not authorized to update checklist!")
+                    );
+                }
+            }
+        }
+
+        task.todoCheckList = todoCheckList;
+
+        const completedCount = task.todoCheckList.filter(
+            (item) => item.completed
+        ).length;
+
+        const totalItems = task.todoCheckList.length;
+
+        task.progress =
+            totalItems > 0
+                ? Math.round((completedCount / totalItems) * 100)
+                : 0;
+
+        if (task.progress === 100) {
+            task.status = "Completed";
+        } else if (task.progress > 0) {
+            task.status = "In Progress";
+        } else {
+            task.status = "Pending";
+        }
+
+        await task.save();
+
+        const updatedTask = await Task.findById(req.params.id)
+            .populate("assignedTo", "name email profileImageUrl")
+            .populate("createdBy", "name");
+
+        res.status(200).json({
+            success: true,
+            message: "Task checklist updated!",
+            task: updatedTask,
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getDashboardData = async(req,res,next)=> {
+    try {
+
+        const filter =
+    req.user.role === "admin"
+        ? {}
+        : {
+              $or: [
+                  {
+                      taskType: "Personal",
+                      assignedTo: req.user.id,
+                  },
+                  {
+                      taskType: "Team",
+                      assignedTo: req.user.id,
+                  },
+              ],
+          };
+        //fetching statistics
+        const totalTasks = await Task.countDocuments(filter);
+        const pendingTasks = await Task.countDocuments({...filter, status: "Pending"});
+        const completedTasks = await Task.countDocuments({...filter, status: "Completed"});
+        const overdueTasks = await Task.countDocuments({
+            ...filter,
+            status: {$ne: "Completed"},
+            dueDate: {$lt: new Date()}
+        })
+
+        const taskStatuses = ["Pending", "In Progress", "Completed"]
+
+        const taskDistributionRaw = await Task.aggregate([
+            {
+                $match: filter,
+            },
+            {
+                $group: {
+                    _id: "$status",
+                    count: { $sum: 1},
+                },
+            },
+        ])
+
+        const taskDistribution = taskStatuses.reduce((acc, status)=> {
+            const formattedKey = status.replace(/\s+/g, "") //removing spaces for response keys
+
+            acc[formattedKey] = taskDistributionRaw.find((item)=> item._id === status)?.count || 0;
+
+            return acc;
+        }, {}) //we will get like this - pending:3, inProgress: 4 (spaces got removed)
+
+        taskDistribution["All"] = totalTasks;
+
+        const taskPriorities = ["Easy Win", "Focus Task", "Mission Critical"];
+
+        const taskPriorityLevelRaw = await Task.aggregate([
+            {
+                $match: filter,
+            },
+            {
+                $group: {
+                    _id: "$priority",
+                    count: { $sum: 1},
+                }
+            }
+        ])
+
+        const taskPriorityLevel = taskPriorities.reduce((acc, priority)=>{
+            const formattedKey = priority.replace(/\s+/g, "");
+            acc[formattedKey] = taskPriorityLevelRaw.find((item) => item._id === priority)?.count || 0;
+
+            return acc
+
+        }, {})
+
+        //fetching recent 10 tasks
+
+        const recentTasks = await Task.find(filter).sort({createdAt: -1})
+        .limit(10)
+        .select("title status priority dueDate createdAt");
+
+        res.status(200).json({
+            statistics: {
+                totalTasks,
+                pendingTasks,
+                completedTasks,
+                overdueTasks
+            },
+            charts: {
+                taskDistribution,
+                taskPriorityLevel
+            },
+            recentTasks
+        })
+        
+    } catch (error) {
+        next(error);
+    }
+}
